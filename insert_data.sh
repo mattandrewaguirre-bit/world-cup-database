@@ -1,4 +1,5 @@
-#! /bin/bash
+
+#!/bin/bash
 
 if [[ $1 == "test" ]]
 then
@@ -8,3 +9,19 @@ else
 fi
 
 # Do not change code above this line. Use the PSQL variable above to query your database.
+
+SQL="BEGIN; TRUNCATE TABLE games, teams RESTART IDENTITY;"
+
+while IFS="," read -r YEAR ROUND WINNER OPPONENT WINNER_GOALS OPPONENT_GOALS
+do
+  OPPONENT_GOALS=${OPPONENT_GOALS%$'\r'}
+
+  SQL+="INSERT INTO teams(name) VALUES('$WINNER'), ('$OPPONENT') ON CONFLICT(name) DO NOTHING;"
+
+  SQL+="INSERT INTO games(year, round, winner_id, opponent_id, winner_goals, opponent_goals) VALUES($YEAR, '$ROUND', (SELECT team_id FROM teams WHERE name='$WINNER'), (SELECT team_id FROM teams WHERE name='$OPPONENT'), $WINNER_GOALS, $OPPONENT_GOALS);"
+
+done < <(tail -n +2 games.csv)
+
+SQL+="COMMIT;"
+
+$PSQL "$SQL"
